@@ -1,0 +1,883 @@
+diff -c ispell-4.0/access.c new/access.c
+*** ispell-4.0/access.c	Mon May 31 18:04:54 1993
+--- new/access.c	Sat Jan 29 09:20:50 1994
+***************
+*** 60,65 ****
+--- 60,69 ----
+  #if iAPX286 && (LARGE_M || HUGE_M)
+  #define SMALL
+  #endif
++ #ifdef _MSC_VER
++ #define SMALL
++ #endif
++ 
+  #ifdef SMALL
+  #define MAXMALLOC 32768
+  
+***************
+*** 311,317 ****
+    struct hash_table_entry hte;
+    long l;
+  #endif
+! #ifdef MSDOS
+    if ((in = fopen (name, "rb")) == NULL)
+      return (-1);
+  #else
+--- 315,321 ----
+    struct hash_table_entry hte;
+    long l;
+  #endif
+! #if defined(MSDOS) || defined(OS2)
+    if ((in = fopen (name, "rb")) == NULL)
+      return (-1);
+  #else
+diff -c ispell-4.0/build.c new/build.c
+*** ispell-4.0/build.c	Mon May 31 17:39:42 1993
+--- new/build.c	Sat Jan 29 09:20:22 1994
+***************
+*** 195,201 ****
+    FILE *out;
+    char *mode;
+  
+! #ifdef MSDOS
+    mode = "wb";
+  #else
+    mode = "w";
+--- 195,201 ----
+    FILE *out;
+    char *mode;
+  
+! #if defined(MSDOS) || defined(OS2)
+    mode = "wb";
+  #else
+    mode = "w";
+diff -c ispell-4.0/freq.c new/freq.c
+*** ispell-4.0/freq.c	Mon May 31 03:39:38 1993
+--- new/freq.c	Sat Jan 29 09:08:20 1994
+***************
+*** 26,31 ****
+--- 26,32 ----
+  #include <stdio.h>
+  #include <ctype.h>
+  #include "charset.h"
++ #include "ispell.h"   /* xcalloc, popen */
+  
+  /* this array contains letters to use when generating near misses */
+  char near_miss_letters[256];
+diff -c ispell-4.0/ispell.c new/ispell.c
+*** ispell-4.0/ispell.c	Mon May 31 21:42:52 1993
+--- new/ispell.c	Sat Jan 29 23:59:38 1994
+***************
+*** 32,37 ****
+--- 32,40 ----
+     See ChangeLog for further author information. */
+  
+  #include <stdio.h>
++ #ifdef OS2
++ #include <stdlib.h>
++ #endif
+  #include <ctype.h>
+  #include <signal.h>
+  
+***************
+*** 105,110 ****
+--- 108,116 ----
+  
+    if (tempfile[0])
+      {
++ #if defined(MSDOS) || defined(OS2)    /* can't unlink open file on OS/2 */
++       fcloseall();
++ #endif
+        (void) unlink (tempfile);
+        tempfile[0] = 0;
+      }
+***************
+*** 225,233 ****
+--- 231,257 ----
+        dname = (char *) getenv ("ISPELL_DICTIONARY");
+        if (dname == NULL)
+  	{
++ #if defined(MSDOS) || defined(OS2)
++ 	  dname = (char *) xmalloc (_MAX_PATH);
++ #else
+  	  dname = (char *) xmalloc ((unsigned) strlen (DICT_LIB) + 30);
++ #endif
+  	  (void) strcpy (dname, DICT_LIB);
++ #if defined(MSDOS) || defined(OS2)
++ 	  strcat(dname, "/ispell.dic");
++ 	  if (access(dname, 4) < 0) {
++ 	    char tmp[_MAX_PATH], **p;
++ 	    char *paths[] = {"DPATH", "PATH", NULL};
++ 	    for (p = paths; *p; p++) {
++ 	      _searchenv("ispell.dic", *p, tmp);
++ 	      if (*tmp) {
++ 		strcpy(dname, tmp); break;
++ 	      }
++ 	    }
++ 	  }
++ #else
+  	  (void) strcat (dname, "/ispell.dict");
++ #endif
+  	}
+      }
+  
+***************
+*** 270,276 ****
+--- 294,304 ----
+  	{
+  	  privname = (char *) xmalloc ((unsigned) (strlen (p) + 50));
+  	  (void) strcpy (privname, p);
++ #if defined(MSDOS) || defined(OS2)
++ 	  (void) strcat (privname, "/ispell.wor");
++ #else
+  	  (void) strcat (privname, "/ispell.words");
++ #endif
+  	}
+      }
+  
+diff -c ispell-4.0/ispell.h new/ispell.h
+*** ispell-4.0/ispell.h	Mon May 31 16:18:50 1993
+--- new/ispell.h	Sat Jan 29 09:30:52 1994
+***************
+*** 132,137 ****
+--- 132,145 ----
+  void erase (void);
+  void termreinit (void);
+  
++ #ifdef OS2
++ #define link rename
++ #ifdef _MSC_VER
++ # define popen _popen
++ # define pclose _pclose
++ #endif
++ #endif
++ 
+  #else /* ! __STDC__ */
+  
+  extern void *xmalloc ();
+Only in new: link.def
+Only in new: link_16.def
+diff -c ispell-4.0/look.c new/look.c
+*** ispell-4.0/look.c	Mon May 31 18:04:04 1993
+--- new/look.c	Sat Jan 29 23:16:48 1994
+***************
+*** 24,29 ****
+--- 24,32 ----
+     are printed */
+  
+  #include <stdio.h>
++ #if defined(MSDOS) || defined(OS2)
++ #include <stdlib.h>
++ #endif
+  #include <ctype.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+***************
+*** 49,55 ****
+--- 52,62 ----
+  
+  #ifdef DICT_LIB
+  char *dict_lib = DICT_LIB;
++ #if defined(MSDOS) || defined(OS2)
++ char *dict_name = "ispell.wor";
++ #else
+  char *dict_name = "ispell.words";
++ #endif
+  #else
+  char *dict_lib = "/usr/dict";
+  char *dict_name = "words";
+***************
+*** 122,128 ****
+  /* dictionary, fold */
+  int
+  cmp11 (line, word)
+!   char *line, *word;
+  {
+    int x;
+    while (1)
+--- 129,135 ----
+  /* dictionary, fold */
+  int
+  cmp11 (line, word)
+!      char *line, *word;
+  {
+    int x;
+    while (1)
+***************
+*** 158,163 ****
+--- 165,203 ----
+    exit (1);
+  }
+  
++ char *
++ ispell_words_f(void)
++ {
++   static char *dict = NULL;
++   
++   if (dict) 
++     return(dict);
++   if ((dict = getenv("ISPELL_WORDS")) == NULL) {
++ #if defined(MSDOS) || defined(OS2)
++     dict = (char *) xmalloc (_MAX_PATH);
++ #else
++     dict = (char *) xmalloc (strlen (dict_lib) + strlen (dict_name) + 2);
++ #endif
++     strcpy (dict, dict_lib);
++     strcat (dict, "/");
++     strcat (dict, dict_name);
++ #if defined(MSDOS) || defined(OS2)
++     if (access(dict, 4) < 0) {
++       char tmp[_MAX_PATH], **p;
++       char *paths[] = {"DPATH", "PATH", NULL};
++       for (p = paths; *p; p++) {
++ 	_searchenv(dict_name, *p, tmp);
++ 	if (*tmp) {
++ 	  strcpy(dict, tmp); break;
++ 	}
++       }
++     }
++ #endif
++   }
++   return(dict);
++ }
++ 
++ 
+  int dflag;
+  int fflag;
+  int rflag;
+***************
+*** 209,218 ****
+      {
+        dflag = 1;
+        fflag = 1;
+!       dict = (char *) xmalloc (strlen (dict_lib) + strlen (dict_name) + 2);
+!       strcpy (dict, dict_lib);
+!       strcat (dict, "/");
+!       strcat (dict, dict_name);
+      }
+  
+    if (rflag)
+--- 249,255 ----
+      {
+        dflag = 1;
+        fflag = 1;
+!       dict = ispell_words_f();
+      }
+  
+    if (rflag)
+***************
+*** 381,387 ****
+    *avp++ = word;
+    *avp++ = dict;
+    *avp = NULL;
+! 
+    execvp (prog, av);
+    fprintf (stderr, "can't exec %s\n", prog);
+  }
+--- 418,424 ----
+    *avp++ = word;
+    *avp++ = dict;
+    *avp = NULL;
+!   
+    execvp (prog, av);
+    fprintf (stderr, "can't exec %s\n", prog);
+  }
+Only in new: Makefile.os2
+diff -c ispell-4.0/priv.c new/priv.c
+*** ispell-4.0/priv.c	Mon May 31 18:03:04 1993
+--- new/priv.c	Sun Jan 30 11:44:58 1994
+***************
+*** 289,294 ****
+--- 289,327 ----
+  }
+  
+  
++ char *
++ make_backup_filename(p)
++ char *p;
++ {
++   char *bakname = (char *) xmalloc (strlen (p) + 2);
++   strcpy(bakname, p);
++ 
++ #if defined(MSDOS) || defined(OS2)
++   {
++   int len, extlen;
++   char *q;
++   if ((p = strrchr(bakname, '.')) == NULL) 
++     p = bakname + strlen(bakname);
++   for (q = p; q != bakname; )
++     if (strchr(":/\\", *--q)) break;
++   extlen = strlen(p); len = p - q;
++   if (extlen <= 4 && len <= 8) {   /* then assume FAT */
++     switch(extlen) {
++     case 0:
++       if (len == 8)
++ 	strcat(bakname, ".");
++       break;
++     case 4:
++       p[3] = '\0';
++       break;
++     }
++   }
++   }
++ #endif
++   return(strcat(bakname, "~"));
++ }
++ 
++ 
+  int
+  p_dump (file)
+    char *file;
+***************
+*** 300,309 ****
+    if (p_size == 0 || p_modified == 0)
+      return (0);
+  
+!   bakname = (char *) xmalloc ((unsigned) (strlen (file) + 50));
+! 
+!   (void) strcpy (bakname, file);
+!   (void) strcat (bakname, ".bak");
+    (void) unlink (bakname);
+    if (link (file, bakname) >= 0)
+      (void) unlink (file);
+--- 333,339 ----
+    if (p_size == 0 || p_modified == 0)
+      return (0);
+  
+!   bakname = make_backup_filename(file);
+    (void) unlink (bakname);
+    if (link (file, bakname) >= 0)
+      (void) unlink (file);
+diff -c ispell-4.0/screen.c new/screen.c
+*** ispell-4.0/screen.c	Mon May 31 16:45:28 1993
+--- new/screen.c	Mon Jan 31 21:53:18 1994
+***************
+*** 24,29 ****
+--- 24,39 ----
+  #include "ispell.h"
+  #include "hash.h"
+  
++ #ifdef OS2
++ #include <stdlib.h>
++ #include <process.h>
++ extern int getchr(void);
++ #ifdef getchar
++ # undef getchar
++ #endif
++ #define getchar getchr
++ #endif
++ 
+  int reading_interactive_command;
+  jmp_buf command_loop;
+  
+***************
+*** 30,38 ****
+  extern struct sp_corrections corrections;
+  
+  #ifdef __STDC__
+! static void copyout (char **, int, FILE *);
+  #else
+! static void copyout ();
+  #endif
+  
+  extern int lflag;
+--- 40,48 ----
+  extern struct sp_corrections corrections;
+  
+  #ifdef __STDC__
+! void copyout (char **, int, FILE *);
+  #else
+! void copyout ();
+  #endif
+  
+  extern int lflag;
+***************
+*** 136,143 ****
+--- 146,163 ----
+        return;
+      }
+  
++ #if defined(MSDOS) || defined(OS2)
++   {
++     char *p;
++     if (p = tempnam(NULL, "isp"))
++       strcpy(tempfile, p);
++     else
++       tempfile[0] = '\0';
++   }
++ #else
+    (void) strcpy (tempfile, "/usr/tmp/ispellXXXXXX");
+    (void) mktemp (tempfile);
++ #endif
+    if ((out = fopen (tempfile, "w")) == NULL)
+      {
+        (void) fprintf (stderr, "Can't create %s\r\n", tempfile);
+***************
+*** 882,888 ****
+      }
+  }
+  
+! static void
+  copyout (cc, cnt, out)
+    char **cc;
+    int cnt;
+--- 902,908 ----
+      }
+  }
+  
+! void
+  copyout (cc, cnt, out)
+    char **cc;
+    int cnt;
+***************
+*** 906,918 ****
+--- 926,988 ----
+  void
+  lookfun (NOARGS)
+  {
++ #if defined(MSDOS) || defined(OS2)
++   char buf[256];
++   sprintf(buf, (lookarg2 ? "%s %s %s" : "%s %s"), lookcmd, lookarg1, lookarg2);
++   shellfunc(buf);
++ #else
+    if (lookarg2 == NULL)
+      (void) execlp (lookcmd, lookcmd, lookarg1, NULL);
+    else
+      (void) execlp (lookcmd, lookcmd, lookarg1, lookarg2, NULL);
++ #endif
+  }
+  
+  
++ #ifdef DICT_LIB
++ char *dict_lib = DICT_LIB;
++ #if defined(MSDOS) || defined(OS2)
++ char *dict_name = "ispell.wor";
++ #else
++ char *dict_name = "ispell.words";
++ #endif
++ #else
++ char *dict_lib = "/usr/dict";
++ char *dict_name = "words";
++ #endif
++ 
++ char *
++ ispell_words_f(void)
++ {
++   static char *dict = NULL;
++   
++   if (dict) 
++     return(dict);
++   if ((dict = getenv("ISPELL_WORDS")) == NULL) {
++ #if defined(MSDOS) || defined(OS2)
++     dict = (char *) xmalloc (_MAX_PATH);
++ #else
++     dict = (char *) xmalloc (strlen (dict_lib) + strlen (dict_name) + 2);
++ #endif
++     strcpy (dict, dict_lib);
++     strcat (dict, "/");
++     strcat (dict, dict_name);
++ #if defined(MSDOS) || defined(OS2)
++     if (access(dict, 4) < 0) {
++       char tmp[_MAX_PATH], **p;
++       char *paths[] = {"DPATH", "PATH", NULL};
++       for (p = paths; *p; p++) {
++ 	_searchenv(dict_name, *p, tmp);
++ 	if (*tmp) {
++ 	  strcpy(dict, tmp); break;
++ 	}
++       }
++     }
++ #endif
++   }
++   return(dict);
++ }
++ 
+  void
+  dolook (str)
+       char *str;
+***************
+*** 939,945 ****
+  
+    lookcmd = "egrep";
+    lookarg1 = str;
+!   lookarg2 = "/usr/lib/ispell.words";
+    dochild (lookfun);
+  }
+  
+--- 1009,1015 ----
+  
+    lookcmd = "egrep";
+    lookarg1 = str;
+!   lookarg2 = ispell_words_f();
+    dochild (lookfun);
+  }
+  
+diff -c ispell-4.0/term.c new/term.c
+*** ispell-4.0/term.c	Mon May 31 16:43:28 1993
+--- new/term.c	Mon Jan 31 22:13:48 1994
+***************
+*** 20,25 ****
+--- 20,72 ----
+  #include <signal.h>
+  #include <setjmp.h>
+  
++ #ifdef OS2
++ #include <stdlib.h>
++ #include <process.h>
++ #define INCL_DOSPROCESS
++ #define INCL_SUB
++ #define INCL_NOPM
++ #include <os2.h>
++ 
++ #ifdef getchar
++ #undef getchar
++ #endif
++ #define getchar getchr
++ 
++ int
++ getchr()
++ {
++   static int ext, scan;
++   KBDKEYINFO ki;
++   int c;
++ 
++   if ( ext ) {
++     ext = 0;
++     c = scan;
++   }
++   else {
++     KbdCharIn(&ki, IO_WAIT, 0);
++     c = ki.chChar;
++ 
++     if ( c == 0 || c == 0xE0 ) {
++       c = 0xE0;
++       ext = 1;
++       scan = ki.chScan;
++     }
++   }
++   return (c);
++ }
++ 
++ #ifdef _MSC_VER
++ unsigned 
++ sleep(unsigned sec)
++ {
++   return DosSleep(sec * 1000L);
++ }
++ #endif
++ 
++ #else
++ 
+  #if defined (HAVE_TERMIO_H)
+  #include <termio.h>
+  #else
+***************
+*** 27,32 ****
+--- 74,81 ----
+  #include <sgtty.h>
+  #endif /* not HAVE_TERMIO_H */
+  
++ #endif /* OS2 */
++ 
+  #include <signal.h>
+  #include "ispell.h"
+  
+***************
+*** 142,149 ****
+--- 191,245 ----
+    tputs (BC, 1, putch);
+  }
+  
++ 
+  static int termchanged = 0;
+  
++ #ifdef OS2
++ 
++ KBDINFO	initialKbdInfo;	/* keyboard info		*/
++ KBDINFO kbdInfo;
++ 
++ void
++ terminit()
++ {
++   initialKbdInfo.cb = sizeof(initialKbdInfo);
++   KbdGetStatus(&initialKbdInfo, 0);
++   kbdInfo = initialKbdInfo;
++   kbdInfo.fsMask &= ~0x0001;		/* not echo on		*/
++   kbdInfo.fsMask |= 0x0002;		/* echo off		*/
++   kbdInfo.fsMask &= ~0x0008;		/* cooked mode off	*/
++   kbdInfo.fsMask |= 0x0004;		/* raw mode		*/
++   kbdInfo.fsMask &= ~0x0100;		/* shift report	off	*/
++   KbdSetStatus(&kbdInfo, 0);
++ 
++   termchanged = 1;
++   erasechar = 8;
++   gettermcap ();
++   normal(); erase();
++ }
++ 
++ void
++ termuninit ()
++ {
++   if (termchanged)
++     {
++       KbdSetStatus(&initialKbdInfo, 0); /* restore original state */
++       termchanged = 0;
++     }
++ }
++ 
++ void
++ termreinit ()
++ {
++   if (termchanged == 0)
++     {
++       KbdSetStatus(&kbdInfo, 0);
++       termchanged = 1;
++     }
++ }
++ 
++ #else
++ 
+  #if !defined (HAVE_TERMIOS_H) && !defined (HAVE_TERMIO_H)
+  static struct sgttyb sbuf, osbuf;
+  
+***************
+*** 213,218 ****
+--- 309,316 ----
+  
+  #endif /* !HAVE_TERMIO_H && !HAVE_TERMIOS_H */
+  
++ #endif
++ 
+  #if defined (HAVE_TERMIO_H) || defined (HAVE_TERMIOS_H)
+  struct termio termio, otermio;
+  
+***************
+*** 301,313 ****
+--- 399,463 ----
+  
+  static char *shellcmd, *shellsh;;
+  
++ #if defined(MSDOS) || defined(OS2)
++ 
++ typedef struct {
++   char name[_MAX_PATH];
++   char opt[3];
++ } shellbuf;
++ 
++ shellbuf shell;
++ 
++ char *getshell(shellbuf *shell)
++ {
++   static char *sname[] = {"cmd", "command", "4os2", "4dos", NULL};
++   char cmd[_MAX_PATH], *shl, *opt;
++   int i;
++ 
++   opt = "-c";
++   if ((shl = getenv("SHELL")) == NULL)
++     shl = getenv("COMSPEC");
++   if (shl) {
++     _splitpath(shl, NULL, NULL, cmd, NULL);
++     for (i = 0; sname[i]; i++)
++       if (stricmp(cmd, sname[i]) == 0) {
++         opt = "/c"; break;
++       }
++   }
++   else
++     shl = "/bin/sh";
++   if (shell) {
++     strcpy(shell->name, shl);
++     strcpy(shell->opt, opt);
++   }
++   return(shl);
++ }
++ 
++ void
++ shellfunc(char *buf)
++ {
++   void shellfun();
++   shellcmd = buf;
++   shellfun();
++ }
++   
++ #endif
++ 
+  void
+  shellfun ()
+  {
++ #if defined(MSDOS) || defined(OS2)
++   char *p;
++   if (shellsh == NULL) shellsh = getshell(&shell);
++   p = (shellcmd && *shellcmd) ? shell.opt : NULL;
++   if (-1 == spawnlp( P_WAIT , shellsh, shellsh, p, shellcmd, NULL))
++     perror ( "shellfun" ) ;
++ #else
+    if (shellcmd == (char *) 0)
+      execlp (shellsh, shellsh, (char *) 0);
+    else
+      execlp (shellsh, shellsh, "-c", shellcmd, (char *) 0);
++ #endif
+  }
+  
+  
+***************
+*** 315,323 ****
+--- 465,477 ----
+  shellescape (buf)
+       char *buf;
+  {
++ #if defined(MSDOS) || defined(OS2)
++   shellsh = getshell(&shell);
++ #else
+    shellsh = (char *) getenv ("SHELL");
+    if (shellsh == NULL)
+      shellsh = "/bin/sh";
++ #endif
+    shellcmd = buf;
+    (void) dochild (shellfun);
+    (void) printf ("\n-- Type space to continue --");
+***************
+*** 334,340 ****
+--- 488,496 ----
+    termuninit ();
+  
+    oldf = (RETSIGTYPE (*)()) signal (SIGINT, SIG_IGN);
++ #ifdef SIGQUIT
+    (void) signal (SIGQUIT, SIG_IGN);
++ #endif
+  #ifdef SIGTTIN
+    (void) signal (SIGTTIN, SIG_DFL);
+    (void) signal (SIGTTOU, SIG_DFL);
+***************
+*** 341,346 ****
+--- 497,506 ----
+    (void) signal (SIGTSTP, SIG_DFL);
+  #endif
+  
++ #ifdef OS2
++   (*fun) ();
++   val = 0;
++ #else
+    pid = fork ();
+    if (pid < 0)
+      {
+***************
+*** 365,372 ****
+--- 525,537 ----
+    signal (SIGTTOU, onstop);
+    signal (SIGTSTP, onstop);
+  #endif
++ 
++ #endif
++ 
+    signal (SIGINT, (RETSIGTYPE (*)()) oldf);
++ #ifdef SIGQUIT
+    signal (SIGQUIT, SIG_DFL);
++ #endif
+  
+    termreinit ();
+  
+Only in new: termcap.c
+diff -c ispell-4.0/tex.c new/tex.c
+*** ispell-4.0/tex.c	Thu Apr 15 17:13:32 1993
+--- new/tex.c	Wed Sep 22 17:53:06 1993
+***************
+*** 18,32 ****
+  
+  #include <stdio.h>
+  #include "ispell.h"
+  
+  int
+! skip_to_next_word_tex (outfile)
+!      FILE *outfile;
+  {
+!   /* tex mode is omitted n this release because:
+!    * 1. I'm not sure it is a good idea (once you insert tex's
+!    *    command names, ispell can check their spelling for you)
+!    * 2. I need to track down the author and get a copyright release.
+     */
+!   return (skip_to_next_word_generic ());
+  }
+--- 18,100 ----
+  
+  #include <stdio.h>
+  #include "ispell.h"
++ #include "hash.h"
+  
++ 
++ static int line_math_mode    = 0 ;  /* skip between $.... $ */
++ static int display_math_mode = 0 ;  /* skip between $$....$$ */
++ static int comment_mode = 0      ;  /* skip dollar sign after % */
++ 
++ 
++ extern char secondbuf[]   ;
++ extern char *currentchar ;
++ #ifdef __STDC__
++ void copyout (char **, int, FILE *);
++ #else
++ void copyout ();
++ #endif
++ 
+  int
+! skip_to_next_word_tex (out)
+!      FILE *out;
+  {
+!   /*
+!       Pavel Ganelin 48ganelin@cua.edu
+     */
+! 
+!   if (currentchar == secondbuf)
+!   /* clear command_mode at the begining of new line */
+!     comment_mode    = 0 ;
+! 
+!   if (currentchar == secondbuf && *currentchar == '\0' )
+!       /* clear all possible errors between paragraphs */
+!       line_math_mode    =  display_math_mode = 0 ;
+! 
+!   while ( *currentchar )
+!   {
+! 
+!      if ( *currentchar == '%' )
+!        {
+!          comment_mode = 1 ;
+!          copyout (&currentchar, 1, out);
+!        }
+!      else if ( line_math_mode && ! comment_mode )
+!        {
+!          if ( *currentchar == '$' )
+!            line_math_mode = 0 ;
+!          copyout (&currentchar, 1, out);
+!        }
+!      else if ( display_math_mode && ! comment_mode)
+!        {
+!          if ( *currentchar == '$' )
+!            display_math_mode = 0 ;
+!          copyout (&currentchar, 1, out);
+!          if ( *currentchar == '$' )
+!            copyout (&currentchar, 1, out);
+!        }
+!      else if ( *currentchar == '$' && ! comment_mode)
+!        {
+!           copyout (&currentchar, 1, out);
+!           if ( *currentchar == '$' )
+!              {
+!                 display_math_mode = 1 ;
+!                 copyout (&currentchar, 1, out);
+!              }
+!           else
+!              line_math_mode = 1 ;
+!        }
+!      else if ( *currentchar == '\\' )  /* start command name */
+!        {
+!           copyout (&currentchar, 1, out);
+!           while ( islexletter ( * currentchar ) )
+!              copyout (&currentchar, 1, out);
+!        }
+! 
+!      else if ( islexletter (*currentchar) && *currentchar != '\'')
+!         return ( 1 ) ;
+!      else
+!         copyout (&currentchar, 1, out);
+!   }
+!   return (0);
+  }
++ 

@@ -1,0 +1,193 @@
+# Makefile for GNU ispell.      -*- Indented-Text -*-
+# (adapted from Makefile.in)
+#
+# - for GNU gcc (emx 0.8h) under OS/2 2.x
+# - for Microsoft C 6.00 under OS/2
+
+# To use, enter "make -f Makefile.os2" (this makefile depends on its
+# name being "Makefile.os2").
+#
+# tested with dmake 3.8 and GNU make 3.68 under OS/2
+
+default:
+	@echo "Enter $(MAKE) -f Makefile.pc target                     "
+	@echo " where 'target' is chosen from                          " 
+	@echo "   msc      OS/2 exe [Microsoft C 6.00a]                "
+	@echo "   emx      OS/2 32-bit exe [EMX/gcc; uses emxlibc.dll] "
+
+emx:  
+	$(MAKE) -f Makefile.os2 all \
+	CC="gcc -Zomf -Zmtd" O=".obj" \
+	CFLAGS="-O" LDFLAGS="-s" \
+	TERMCAP="" \
+	LIBS="link.def -ltermcap"
+
+msc: 
+	$(MAKE) -f Makefile.os2 all \
+	CC="cl -nologo -AC" O=".obj" \
+	CFLAGS="-D__STDC__ -UMSDOS" LDFLAGS="-Lp" \
+	TERMCAP="termcap.obj" \
+	LIBS="setargv.obj link_16.def -link /NOE"
+
+# Defaults
+CC = cl -nologo -AC
+O =.obj
+CFLAGS= -D__STDC__ -UMSDOS 
+LDFLAGS = -Lp
+TERMCAP = termcap.obj
+LIBS =setargv.obj link_16.def -link /NOE
+
+
+#### Start of system configuration section. ####
+
+srcdir = .
+# VPATH = @srcdir@
+
+INSTALL = install
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
+
+DEFS = -DOS2 -DSTDC_HEADERS -DHAVE_MALLOC_H -DRETSIGTYPE=void
+
+CHARSET = c-ibmpc.c
+ALLOCA =
+
+prefix = /gnu
+exec_prefix = $(prefix)
+
+bindir = $(exec_prefix)/bin
+datadir = $(prefix)/lib/ispell
+libdir = $(prefix)/lib/emacs/site-lisp
+infodir = $(prefix)/info
+
+# Where to install the manual pages.
+mandir = $(prefix)/man/man1
+# Prefix for each installed man page, normally empty or `g'.
+manprefix =
+# Extension (not including `.') for the installed manual page filenames.
+manext = 1
+
+#### End of system configuration section. ####
+
+SHELL = /bin/sh
+
+LOADLIBES = $(LIBS)
+
+DICTIONARY = dict
+DISTNAME = ispell-dict
+VERSION = `sed -e '/version/!d;s/[^0-9.]*\([0-9.]*\).*/\1/;q' version.c`
+
+# All subdirectories that go into a distribution
+# There are none at the moment.
+ALL_SUBDIRS =
+
+# charset.c is automatically generated from c-generic.c or c-ibmpc.c
+# during configuration.
+SRCS = access.c c-generic.c c-ibmpc.c charset.h ctbl.c downcase.c exp.c \
+	  expand.c freq.c getopt.c getopt1.c getopt.h hash.c hash.h lexfsm.c \
+	  look.c mapcase.c nextprime.c suf.c version.c  util.c
+
+OBJS = access$O charset$O ctbl$O downcase$O exp$O getopt$O getopt1$O hash$O \
+	  lexfsm$O nextprime$O suf$O version$O util$O $(ALLOCA)
+
+SRCS_BUILD = build.c build.h mklextbl.c
+OBJS_BUILD = build$O mklextbl$O
+
+SRCS_LOOK = look.c getopt.c getopt1.c util.c
+OBJS_LOOK = look$O getopt$O getopt1$O util$O $(ALLOCA)
+
+SRCS_ISPELL = case.c gen.c good.c good.h ispell.c ispell.h priv.c screen.c \
+	    term.c tex.c
+OBJS_ISPELL = ispell$O case$O gen$O good$O priv$O screen$O term$O tex$O \
+	    $(TERMCAP)
+
+SRCS_ALL = $(SRCS) $(SRCS_BUILD) $(SRCS_ISPELL)
+OBJS_ALL = $(OBJS) $(OBJS_BUILD) $(OBJS_ISPELL)
+
+DICT_LIB = $(datadir)
+
+.c$O:
+	$(CC) -c $(DEFS) -DDICT_LIB=\"$(DICT_LIB)\" $(CPPFLAGS) $(CFLAGS) $<
+
+all: build.exe look.exe ispell.exe ispell.dict ispell.words ispell.info
+
+### targets required by GNU Coding standards ###
+
+clean:
+	rm -f *.o *.obj *.elc ispell.exe build.exe freq.exe core \
+	freqtbl expand.exe look.exe
+
+mostlyclean: clean
+	rm -f ispell.dict ispell.words
+
+distclean: clean
+	rm -f Makefile config.status charset.c
+
+realclean: distclean mostlyclean
+	rm -f TAGS ispell.info configure
+
+install: all ispell.info installdirs
+	$(INSTALL_PROGRAM) ispell.exe $(bindir)/ispell.exe
+	$(INSTALL_PROGRAM) look.exe $(bindir)/look.exe
+	$(INSTALL_DATA) ispell.dict $(datadir)/ispell.dic
+	$(INSTALL_DATA) ispell.words $(datadir)/ispell.wor
+	-$(INSTALL_DATA) $(srcdir)/ispell.1 $(mandir)/ispell.$(manext)
+	-d=$(srcdir); test -f ./ispell.info && d=.; \
+	cd $$d; for f in ispell.info* ; do $(INSTALL_DATA) $$f $(infodir)/$$f; done
+	-$(INSTALL_DATA) $(srcdir)/ispell.el $(libdir)/ispell.el
+#	-$(INSTALL_DATA) ispell.elc $(libdir)/ispell.elc
+
+installdirs:
+	-sh $(srcdir)/mkinstalldirs $(bindir) $(datadir) $(libdir) $(infodir) $(mandir)
+
+uninstall: force
+	-cd $(bindir); rm -f ispell.exe look.exe
+	-cd $(datadir); rm -f ispell.dic ispell.wor
+	-cd $(infodir); rm -f ispell.info
+	-cd $(mandir); rm -f ispell.$(manext)
+	-cd $(libdir); rm -f ispell.el ispell.elc
+
+### ispell-specific building targets ###
+
+$(OBJS_ALL): ispell.h
+
+build.exe: $(OBJS_BUILD) $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS_BUILD) $(OBJS) $(LOADLIBES)
+
+expand.exe: expand$O $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ expand$O $(OBJS) $(LOADLIBES)
+
+freq.exe: freq$O $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ freq$O $(OBJS) $(LOADLIBES)
+
+freqtbl: freq.exe $(DICTIONARY)
+	./freq < $(srcdir)/$(DICTIONARY) > freqtbl
+
+look.exe: $(OBJS_LOOK)
+	$(CC) $(LDFLAGS) -o look.exe $(OBJS_LOOK) $(LOADLIBES)
+
+ispell.exe: $(OBJS_ISPELL) $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS_ISPELL) $(OBJS) $(LOADLIBES)
+
+ispell.info: ispell.texi
+	makeinfo --no-split -I$(srcdir) ispell.texi
+
+ispell.dvi: ispell.texi
+	texi2dvi $(srcdir)/ispell.texi
+
+ispell.dict: build.exe $(DICTIONARY) freqtbl
+	./build -b -f freqtbl -o ispell.dict $(srcdir)/$(DICTIONARY)
+
+ispell.words: $(DICTIONARY) expand.exe
+	./expand $(srcdir)/$(DICTIONARY) | sort | uniq > ispell.words
+
+charset.c: $(CHARSET)
+	cp $(srcdir)/$(CHARSET) charset.c
+
+ispell.elc: ispell.el
+	emacs -batch -l $(srcdir)/ispell.el -f batch-make-ispell
+
+force:
+
+# Prevent GNU make v3 from overflowing arg limit on SysV.
+.NOEXPORT:

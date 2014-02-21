@@ -1,0 +1,78 @@
+This archive contains a port to OS/2 1.x--2.x of GNU ispell 4.0, and
+includes extensions from Pavel Ganelin <48ganelin@cua.edu> for
+handling TeX files.
+
+There are two major "ispell" programs, both derived from work by Pace
+Willisson and others. The "Ispell International version" by Goeff
+Kuenning may be preferred, especially with the Jan-94 release of
+version 3.1. Version 3.0.09 has been ported to OS/2 2.x by Joe Huber
+<jbhuber@iastate.edu>, and OS/2 2.x users should get his version from
+ftp-os2.cdrom.com.
+
+The main reason for this port is to provide a version to be used under
+OS/2 1.x. The JED editor includes support for ispell. (JED is
+Emacs-like, but can run under OS/2 1.x. The OS/2 version is in beta.)
+
+
+Installation
+------------
+Copy ispell.exe and look.exe to some directory in your PATH. Copy
+ispell.dic and ispell.wor to /gnu/lib/ispell/ (or some other handy
+place).  Dictionary files can be specified in the environment
+variables ISPELL_DICTIONARY and ISPELL_WORDS. If the corresponding
+environment variable is not set, then the search looks for ispell.dic
+and ispell.wor in /gnu/lib/ispell/, then the current directory, then
+along DPATH, and finally along PATH.
+
+A personal dictionary can be created by ispell if the HOME environment
+variable is set.
+
+Place termcap.dat in, say, /etc/, and set the environment var TERMCAP
+to be the full pathname of this file.  Note that a number of Unix-like
+programs use termcap.dat, and some ports will not handle the pathname
+correctly if it contains a drive letter. Some of these ports (and
+ispell) can also find termcap.dat along INIT, PATH, or DPATH.
+
+You *must* set the environment variable TERM to one of the choices
+in termcap.dat (try "set TERM=ansi"). Case is significant.
+
+The main documentation is ispell.info, which is designed to be read
+with Emacs, JED, or a stand-alone info reader. It can also be examined
+with any file viewer. There is a short man page ispell.1.
+
+To use ispell with Emacs, copy the ispell.el file to your "site-lisp"
+directory. JED can use ispell without any changes to its macros.
+
+
+Notes 
+----- 
+1. ispell can be used on a FAT partition; however, Makefile.os2
+assumes HPFS for building ispell.
+
+2. The tex.c changes are from Pavel Ganelin <48ganelin@cua.edu>,
+who has ported ispell to DOS (his port is available on oak.oakland.edu).
+
+3. Eliminated fork in dochild. Some functions passed to dochild
+were modified so that Ctrl-c is handled properly.
+
+4. The makefile has rules for an emx/gcc version; however, I recommend
+Huber's port of the international ispell for OS/2 2.x. 
+
+5. If set, the environment variable SHELL is used for "!" shell commands.
+
+6. The changes were made in anticipation of bound OS/2 and DOS
+versions.  Use of the popen routines from the gawk distribution should
+make it easy to get bound versions.
+
+
+Bugs
+----
+1. The keyboard handler could be more robust.
+
+2. The "look" program defaults to "-df" if there is no file given.
+I don't understand why look is written so that "look hello"
+fails. The problem is in the handling of dictionary order in a search.
+
+--
+Darrel Hankerson hankedr@mail.auburn.edu
+30-Jan-1994
